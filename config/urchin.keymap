@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2020 duckyb
+ * Urchin 34-key Colemak-DH keymap
+ * Callum-style one-shot mods, tri-layer via conditional layers
  *
  * SPDX-License-Identifier: MIT
  */
@@ -11,40 +12,55 @@
 
 // Layer definitions
 #define BASE 0
-#define SYM 1
-#define EXT 2
-#define FNC 3
-#define SYM2 4
-#define SETTINGS 5
-// -----------------
+#define NAV 1
+#define SYM 2
+#define NUM 3
+#define SETTINGS 4
+
+/*
+ * Key positions (Urchin 34-key):
+ *  0  1  2  3  4       5  6  7  8  9
+ * 10 11 12 13 14      15 16 17 18 19
+ * 20 21 22 23 24      25 26 27 28 29
+ *          30 31      32 33
+ */
 
 &sk {
-	// don't release mods on other mods presses
+	// allow stacking one-shot mods
 	ignore-modifiers;
 };
 
-
 / {
 	behaviors {
-		// Enables holding the first mod-tap key
-		// by performing a tap-release-hold sequence.
-		// To use it: "&qt KEYCODE1 KEYCODE2"
-		qt: quick_tap {
+		// Right outer thumb: tap=Backspace, hold=LGUI
+		bspc_gui: backspace_gui {
 			compatible = "zmk,behavior-hold-tap";
-			label = "QUICK_TAP";
 			#binding-cells = <2>;
-			flavor = "hold-preferred";
+			flavor = "balanced";
 			tapping-term-ms = <200>;
-			quick-tap-ms = <200>;
 			bindings = <&kp>, <&kp>;
+		};
+
+		// Comma → Semicolon on shift
+		comma_semi: comma_semicolon {
+			compatible = "zmk,behavior-mod-morph";
+			#binding-cells = <0>;
+			bindings = <&kp COMMA>, <&kp SEMI>;
+			mods = <(MOD_LSFT|MOD_RSFT)>;
+		};
+
+		// Period → Colon on shift
+		dot_colon: dot_colon {
+			compatible = "zmk,behavior-mod-morph";
+			#binding-cells = <0>;
+			bindings = <&kp DOT>, <&kp COLON>;
+			mods = <(MOD_LSFT|MOD_RSFT)>;
 		};
 	};
 
 	macros {
-		// sometimes my device thinks a modifier is being held down
-		// pressing all modifiers fixes it.
+		// Press all modifiers to unstick phantom held mods
 		unstick: unstick {
-			label = "ZM_unstick";
 			compatible = "zmk,behavior-macro";
 			#binding-cells = <0>;
 			bindings = <&kp LSHIFT &kp RSHIFT &kp LCTRL &kp RCTRL &kp LALT &kp RALT &kp LGUI &kp RGUI>;
@@ -53,13 +69,26 @@
 
 	combos {
 		compatible = "zmk,combos";
-		// internal-left & external-right thumb keys
-		combo_sym2 {
-			timeout-ms = <200>;
-			key-positions = <31 33>;
-			bindings = <&mo SYM2>;
+
+		// W + F → Escape
+		combo_esc {
+			timeout-ms = <50>;
+			require-prior-idle-ms = <150>;
+			key-positions = <1 2>;
+			bindings = <&kp ESC>;
+			layers = <BASE>;
 		};
-		// both left thumb keys
+
+		// N + E → CapsWord
+		combo_capsword {
+			timeout-ms = <50>;
+			require-prior-idle-ms = <150>;
+			key-positions = <16 17>;
+			bindings = <&caps_word>;
+			layers = <BASE>;
+		};
+
+		// Both left thumbs → Settings layer
 		combo_settings {
 			timeout-ms = <200>;
 			key-positions = <30 31>;
@@ -67,64 +96,80 @@
 		};
 	};
 
+	conditional_layers {
+		compatible = "zmk,conditional-layers";
+
+		// Nav + Sym → Num (tri-layer)
+		tri_layer {
+			if-layers = <NAV SYM>;
+			then-layer = <NUM>;
+		};
+	};
+
 	keymap {
 		compatible = "zmk,keymap";
-		// Base alpha layer (Colemak-DH)
+
+		// Layer 0: BASE (Colemak-DH)
+		// Q  W  F  P  B          J  L  U  Y  '
+		// A  R  S  T  G          M  N  E  I  O
+		// Z  X  C  D  V          K  H  ,; .: /
+		//       Space Nav/Ent    Sym/Tab Bksp/Super
 		default_layer {
 			label = "Base";
 			bindings = <
-			&kp Q &kp W &kp F &kp P &kp B           &kp J &kp L  &kp U     &kp Y   &kp SEMI
-			&kp A &kp R &kp S &kp T &kp G           &kp M &kp N  &kp E     &kp I   &kp O
-			&kp Z &kp X &kp C &kp D &kp V           &kp K &kp H  &kp COMMA &kp DOT &kp FSLH
-			                  &mo EXT &qt LSHIFT SPACE           &kp SPACE &sl SYM
+			&kp Q &kp W &kp F &kp P &kp B          &kp J &kp L &kp U        &kp Y       &kp SQT
+			&kp A &kp R &kp S &kp T &kp G          &kp M &kp N &kp E        &kp I       &kp O
+			&kp Z &kp X &kp C &kp D &kp V          &kp K &kp H &comma_semi  &dot_colon  &kp FSLH
+			             &kp SPACE &lt NAV ENTER     &lt SYM TAB &bspc_gui LGUI BSPC
 			>;
 		};
 
-		// Numbers and high frequency symbols
+		// Layer 1: NAV (hold left inner thumb)
+		// ---   Redo  Undo  Tab   ---        Ins   Home  Up    End   PgUp
+		// Super Alt   Ctrl  Shift ---        CapsW Left  Down  Right PgDn
+		// ---   Cut   Copy  Paste ---        ---   W←    Enter W→    Esc
+		//              Space HELD              Sym/Tab Bksp/Super
+		nav_layer {
+			label = "Nav";
+			bindings = <
+			&none    &kp LC(Y) &kp LC(Z)  &kp TAB    &none          &kp INS     &kp HOME     &kp UP    &kp END      &kp PG_UP
+			&sk LGUI &sk LALT  &sk LCTRL  &sk LSHFT  &none          &caps_word  &kp LEFT     &kp DOWN  &kp RIGHT    &kp PG_DN
+			&none    &kp LC(X) &kp LC(C)  &kp LC(V)  &none          &none       &kp LC(LEFT) &kp ENTER &kp LC(RIGHT) &kp ESC
+			                   &kp SPACE  &trans                     &lt SYM TAB &bspc_gui LGUI BSPC
+			>;
+		};
+
+		// Layer 2: SYM (hold right inner thumb)
+		// !  @  #  $  %          ^  &  *  -  +
+		// {  (  )  }  `          --- Shift Ctrl Alt Super
+		// ~  [  ]  |  \          --- =  <  >  ---
+		//        Space Nav/Ent     HELD  Bksp/Super
 		sym_layer {
-			label = "Sym.";
+			label = "Sym";
 			bindings = <
-			&kp N1  &kp N2    &kp N3   &kp N4   &kp N5       &kp N6    &kp N7    &kp N8    &kp N9    &kp N0
-			&kp LT  &kp DLLR  &kp LPAR &kp LBRC &kp LBKT     &kp EQUAL &kp QMARK &kp SQT   &kp MINUS &kp ASTRK
-			&kp GT  &kp PRCNT &kp RPAR &kp RBRC &kp RBKT     &kp AT    &kp EXCL  &kp DQT   &kp PLUS  &kp FSLH
-			                           &mo FNC  &mo SYM2      &trans    &trans
+			&kp EXCL  &kp AT   &kp HASH &kp DLLR &kp PRCNT      &kp CARET &kp AMPS  &kp ASTRK &kp MINUS &kp PLUS
+			&kp LBRC  &kp LPAR &kp RPAR &kp RBRC &kp GRAVE      &none     &sk LSHFT &sk LCTRL &sk LALT  &sk LGUI
+			&kp TILDE &kp LBKT &kp RBKT &kp PIPE &kp BSLH       &none     &kp EQUAL &kp LT    &kp GT    &none
+			                   &kp SPACE &lt NAV ENTER            &trans    &bspc_gui LGUI BSPC
 			>;
 		};
 
-		// Main modifiers and arrow keys
-		ext_layer {
-			label = "Mods";
+		// Layer 3: NUM (conditional: Nav + Sym)
+		// F1  F2  F3  F4  F5         F11 -   +   *   F12
+		// 1   2   3   4   5          6   7   8   9   0
+		// F6  F7  F8  F9  F10        --- =   ,   .   /
+		//            Space ---        ---  Bksp/Super
+		num_layer {
+			label = "Num";
 			bindings = <
-			&kp ESC  &kp C_PREV &kp C_PP   &kp C_NEXT &kp C_PAUSE     &kp PG_UP    &kp HOME &kp UP   &kp END   &kp CAPS
-			&sk LALT &sk LGUI   &sk LSHIFT &sk LCTRL  &kp RALT        &kp PG_DN    &kp LEFT &kp DOWN &kp RIGHT &kp DEL
-			&kp LC(Z) &kp LC(X) &kp LC(C)  &kp TAB    &kp LC(V)       &kp LC(BSPC) &kp BSPC &trans   &trans    &trans
-			                               &trans     &kp LCTRL       &kp ENTER    &mo FNC
+			&kp F1 &kp F2 &kp F3 &kp F4 &kp F5       &kp F11 &kp MINUS &kp PLUS  &kp ASTRK &kp F12
+			&kp N1 &kp N2 &kp N3 &kp N4 &kp N5       &kp N6  &kp N7    &kp N8    &kp N9    &kp N0
+			&kp F6 &kp F7 &kp F8 &kp F9 &kp F10      &none   &kp EQUAL &kp COMMA &kp DOT   &kp FSLH
+			                     &kp SPACE &trans      &trans  &bspc_gui LGUI BSPC
 			>;
 		};
 
-		// Function keys with modifiers
-		fnc_layer {
-			label = "FRow";
-			bindings = <
-			&kp F1   &kp F2   &kp F3     &kp F4    &kp F5       &kp F6  &kp F7  &kp F8          &kp F9 &kp F10
-			&sk LALT &sk LGUI &sk LSHIFT &sk LCTRL &kp RALT     &kp F11 &kp F12 &kp PRINTSCREEN &trans &trans
-			&none    &none    &none      &none     &none         &none   &none   &none           &none  &none
-			                             &none     &none         &none   &none
-			>;
-		};
-
-		// Low frequency symbols
-		symbols_2_layer {
-			label = "Sym.2";
-			bindings = <
-			&kp CARET &kp UNDER &kp HASH  &none     &kp HASH      &none &none &none &none &none
-			&kp GRAVE &kp TILDE &kp BSLH  &kp PIPE  &kp AMPS      &none &none &none &none &none
-			&none     &none     &none      &none     &none         &none &none &none &none &none
-			                               &none     &none         &none &none
-			>;
-		};
-
-		// Used to change the keyboard's settings.
+		// Layer 4: SETTINGS (both left thumbs combo)
 		settings_layer {
 			label = "Sett.";
 			bindings = <
